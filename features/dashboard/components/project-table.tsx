@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { format } from "date-fns";
+import { format, set } from "date-fns";
 import type { Project } from "../types";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -81,25 +81,75 @@ export default function ProjectTable({
 
 
   const handleDuplicateProject = async (project: Project) => {
-    if(!onDuplicateProject) return;
+    if (!onDuplicateProject) return;
 
     setIsLoading(true)
     try {
-    }catch(error){
-    }finally{
+      await onDuplicateProject(project.id);
+      toast.success("Project duplicated successfully");
+    } catch (error) {
+      toast.error("Failed to duplicate project");
+      console.error("Duplicate project error:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleEditClick = async (project: Project) => {
+    setSelectedProject(project);
+    setEditData({ title: project.title, description: project.description || "" });
+    setEditDialogOpen(true);
+  };
 
+  const handleUpdateProject = async () => {
+    if (!onUpdateProject || !selectedProject) return;
+
+    setIsLoading(true);
+    try {
+      await onUpdateProject(selectedProject.id, editData);
+      setEditDialogOpen(false);
+      setSelectedProject(null);
+      toast.success("Project updated successfully");
+    } catch (error) {
+      toast.error("Failed to update project");
+      console.error("Update project error:", error);
+    }
+    finally {
+      setIsLoading(false);
+    }
   };
 
   const copyProjectUrl = async (projetId: string) => {
-
+    const url = `${window.location.origin}/playground/${projetId}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Project URL copied to clipboard");
+    } catch (error) {
+      toast.error("Failed to copy URL");
+      console.error("Copy URL error:", error);
+    }
   };
 
   const handleDeleteClick = async (project: Project) => {
+    setSelectedProject(project);
+    setDeleteDialogOpen(true);
+  };
 
+  const handleDeleteProject = async () => {
+    if (!onDeleteProject || !selectedProject) return;
+
+    setIsLoading(true);
+    try {
+      await onDeleteProject(selectedProject.id);
+      setDeleteDialogOpen(false);
+      setSelectedProject(null);
+      toast.success("Project deleted successfully");
+    } catch (error) {
+      toast.error("Failed to delete project");
+      console.error("Delete project error:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -115,6 +165,7 @@ export default function ProjectTable({
               <TableHead className="w-[50px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
+
           <TableBody>
             {projects.map((project) => (
               <TableRow key={project.id}>
@@ -126,9 +177,11 @@ export default function ProjectTable({
                     >
                       <span className="font-semibold">{project.title}</span>
                     </Link>
+
                     <span className="text-sm text-gray-500 line-clamp-1">
                       {project.description}
                     </span>
+
                   </div>
                 </TableCell>
                 <TableCell>
@@ -226,6 +279,88 @@ export default function ProjectTable({
         </Table>
       </div>
 
+
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Project</DialogTitle>
+            <DialogDescription>
+              Make changes to your project details here. Click save when you're
+              done.
+            </DialogDescription>
+          </DialogHeader>
+
+
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="title">Project title</Label>
+              <Input
+                id="title"
+                value={editData.title}
+                onChange={(e) =>
+                  setEditData((prev) => ({ ...prev, title: e.target.value }))
+                }
+                placeholder="Enter project title"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={editData.description}
+                onChange={(e) =>
+                  setEditData((prev) => ({ ...prev, description: e.target.value }))
+                }
+                placeholder="Enter project description"
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button 
+            type="button" variant={"outline"}
+              disabled={isLoading}
+              onClick={() => setEditDialogOpen(false)}
+            >Cancel</Button>
+            <Button
+              type="button" variant={"brand"}
+              onClick={handleUpdateProject}>
+              {
+                isLoading ? "Updating..." : "Save Changes"
+              }
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+      > 
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this project?</AlertDialogTitle>  
+            <AlertDialogDescription>
+              <span className="font-sm text-red-400">"{selectedProject?.title}"</span>This action cannot be undone. This will permanently delete your project and remove all associated data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+              
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              disabled={isLoading}
+              >Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+             onClick={handleDeleteProject}
+              disabled={isLoading}
+              className="bg-destructive text-white hover:bg-destructive/90 focus:ring-destructive/20 dark:focus:ring-destructive/40"
+              >
+              { isLoading ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
 
   );
