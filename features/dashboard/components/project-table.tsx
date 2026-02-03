@@ -319,8 +319,8 @@ export default function ProjectTable({
           </div>
 
           <DialogFooter>
-            <Button 
-            type="button" variant={"outline"}
+            <Button
+              type="button" variant={"outline"}
               disabled={isLoading}
               onClick={() => setEditDialogOpen(false)}
             >Cancel</Button>
@@ -338,25 +338,25 @@ export default function ProjectTable({
       <AlertDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-      > 
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure you want to delete this project?</AlertDialogTitle>  
+            <AlertDialogTitle>Are you sure you want to delete this project?</AlertDialogTitle>
             <AlertDialogDescription>
               <span className="font-sm text-red-400">"{selectedProject?.title}"</span>This action cannot be undone. This will permanently delete your project and remove all associated data.
             </AlertDialogDescription>
           </AlertDialogHeader>
-              
+
           <AlertDialogFooter>
-            <AlertDialogCancel 
+            <AlertDialogCancel
               disabled={isLoading}
-              >Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-             onClick={handleDeleteProject}
+            >Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteProject}
               disabled={isLoading}
               className="bg-destructive text-white hover:bg-destructive/90 focus:ring-destructive/20 dark:focus:ring-destructive/40"
-              >
-              { isLoading ? "Deleting..." : "Delete"}
+            >
+              {isLoading ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
