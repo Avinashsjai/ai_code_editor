@@ -11,7 +11,6 @@ generator client {
 
 datasource db {
   provider = "mongodb"
-  url = env("DATABASE_URL")
 }
 
 enum UserRole {
@@ -73,10 +72,22 @@ model Playground {
   Starmark StarMark[]
   userId   String     @db.ObjectId
   user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  // todo: add here templatefiles as well
+  templateFiles TemplateFile[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model TemplateFile {
+  id           String     @id @default(auto()) @map("_id") @db.ObjectId
+  playgroundId String     @unique @db.ObjectId
+  content      Json
+
+  playground   Playground @relation(fields: [playgroundId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
 }
 
 model StarMark {
