@@ -46,7 +46,8 @@ interface TemplateFileTreeProps {
 
 
 const TemplateFileTree = ({
-  data, onFileSelect,
+  data, 
+  onFileSelect,
   selectedFile,
   title = "File Explorer",
   onAddFile,

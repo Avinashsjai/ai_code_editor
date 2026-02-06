@@ -72,7 +72,7 @@ const TemplateNode = ({
 
     if (!isFolder) {
         const file = item as TemplateFile;
-        const filenameWithExtension = `${file.filename}.${file.fileExtension}`;
+        const fileName = `${file.filename}.${file.fileExtension}`;
 
         const isSelected =
             selectedFile && selectedFile.filename === file.filename && selectedFile.fileExtension === file.fileExtension
@@ -98,9 +98,9 @@ const TemplateNode = ({
         return (
             <SidebarMenuItem>
                 <div className='flex items-center group'>
-                    <SidebarMenuButton className='flex-1'>
+                    <SidebarMenuButton isActive={isSelected} onClick={()=> onFileSelect?.(file)} className='flex-1'>
                         <File className='h-4 w-4 mr-2 shrink-0' />
-                        <span>{filenameWithExtension}</span>
+                        <span>{fileName}</span>
                     </SidebarMenuButton>
 
 
