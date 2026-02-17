@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react'
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
@@ -15,18 +15,25 @@ import { toast } from 'sonner';
 import { usePlayground } from '@/features/playground/hooks/usePlayground';
 import { useFileExplorer } from '@/features/playground/hooks/useFileExplorer';
 import type { TemplateFile } from "@/features/playground/lib/path-to-json";
-import { DropdownMenu, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuContent } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { DropdownMenuSeparator } from '@radix-ui/react-dropdown-menu';
+// import { DropdownMenuSeparator } from '@radix-ui/react-dropdown-menu';
 import TemplateFileTree from '@/features/playground/components/template-file-tree';
-import PlaygroundEditor from '@/features/playground/components/playground-editor';
+import {PlaygroundEditor} from '@/features/playground/components/playground-editor';
 import { UseWebContainer } from '@/features/webContainers/hooks/useWebContainer';
 import WebContainerPreview from '@/features/webContainers/components/webContainer-preview';
+import { findFilePath } from "@/features/playground/lib";
+import { TemplateFolder } from '@/features/playground/types';
+import ToggleAI from '@/features/playground/components/toggle-ai';
+import { useAISuggestion } from '@/features/ai/hooks/useAISuggestion';
 
 const Page = () => {
     const { id } = useParams<{ id: string }>();
     const [isPreviewVisible, setIsPreviewVisible] = useState(true)
     const { playgroundData, templateData, isLoading, error, loadPlayground, saveTemplateData } = usePlayground(id);
+    
+    const aiSuggestion = useAISuggestion()
+
     const {
         activeFileId,
         closeAllFiles,
@@ -56,6 +63,8 @@ const Page = () => {
         // @ts-ignore
     } = UseWebContainer({ templateData })
 
+    const lastSyncedContent = useRef<Map<string, string>>(new Map());
+
     useEffect(() => {
         setPlaygroundId(id);
     }, [id, setPlaygroundId])
@@ -66,6 +75,73 @@ const Page = () => {
         }
     }, [templateData, setTemplateData, openFiles.length])
 
+
+    // Create wrapper functions that pass saveTemplateData
+    const wrappedHandleAddFile = useCallback(
+        (newFile: TemplateFile, parentPath: string) => {
+            return handleAddFile(
+                newFile,
+                parentPath,
+                writeFileSync!,
+                instance,
+                saveTemplateData
+            );
+        },
+        [handleAddFile, writeFileSync, instance, saveTemplateData]
+    );
+
+    const wrappedHandleAddFolder = useCallback(
+        (newFolder: TemplateFolder, parentPath: string) => {
+            return handleAddFolder(newFolder, parentPath, instance, saveTemplateData);
+        },
+        [handleAddFolder, instance, saveTemplateData]
+    );
+
+    const wrappedHandleDeleteFile = useCallback(
+        (file: TemplateFile, parentPath: string) => {
+            return handleDeleteFile(file, parentPath, saveTemplateData);
+        },
+        [handleDeleteFile, saveTemplateData]
+    );
+
+    const wrappedHandleDeleteFolder = useCallback(
+        (folder: TemplateFolder, parentPath: string) => {
+            return handleDeleteFolder(folder, parentPath, saveTemplateData);
+        },
+        [handleDeleteFolder, saveTemplateData]
+    );
+
+    const wrappedHandleRenameFile = useCallback(
+        (
+            file: TemplateFile,
+            newFilename: string,
+            newExtension: string,
+            parentPath: string
+        ) => {
+            return handleRenameFile(
+                file,
+                newFilename,
+                newExtension,
+                parentPath,
+                saveTemplateData
+            );
+        },
+        [handleRenameFile, saveTemplateData]
+    );
+
+    const wrappedHandleRenameFolder = useCallback(
+        (folder: TemplateFolder, newFolderName: string, parentPath: string) => {
+            return handleRenameFolder(
+                folder,
+                newFolderName,
+                parentPath,
+                saveTemplateData
+            );
+        },
+        [handleRenameFolder, saveTemplateData]
+    );
+
+
     const activeFile = openFiles.find((file) => file.id === activeFileId);
     const hasUnsavedChanges = openFiles.some((file) => file.hasUnsavedChanges)
 
@@ -73,6 +149,122 @@ const Page = () => {
         console.log("HandlePath", file)
         openFile(file)
     };
+
+    const handleSave = useCallback(
+        async (fileId?: string) => {
+            const targetFileId = fileId || activeFileId;
+            if (!targetFileId) return;
+
+            const fileToSave = openFiles.find((f) => f.id === targetFileId);
+            if (!fileToSave) return;
+
+            const latestTemplateData = useFileExplorer.getState().templateData;
+            if (!latestTemplateData) return;
+
+            try {
+                const filePath = findFilePath(fileToSave, latestTemplateData);
+                if (!filePath) {
+                    toast.error(
+                        `Could not find path for file: ${fileToSave.filename}.${fileToSave.fileExtension}`
+                    );
+                    return;
+                }
+
+                // Update file content in template data (clone for immutability)
+                const updatedTemplateData = JSON.parse(
+                    JSON.stringify(latestTemplateData)
+                );
+                const updateFileContent = (items: any[]) =>
+                    items.map((item) => {
+                        if ("folderName" in item) {
+                            return { ...item, items: updateFileContent(item.items) };
+                        } else if (
+                            item.filename === fileToSave.filename &&
+                            item.fileExtension === fileToSave.fileExtension
+                        ) {
+                            return { ...item, content: fileToSave.content };
+                        }
+                        return item;
+                    });
+                updatedTemplateData.items = updateFileContent(
+                    updatedTemplateData.items
+                );
+
+                // Sync with WebContainer
+                if (writeFileSync) {
+                    await writeFileSync(filePath, fileToSave.content);
+                    lastSyncedContent.current.set(fileToSave.id, fileToSave.content);
+                    if (instance && instance.fs) {
+                        await instance.fs.writeFile(filePath, fileToSave.content);
+                    }
+                }
+
+                // Use saveTemplateData to persist changes
+                const newTemplateData = await saveTemplateData(updatedTemplateData);
+                setTemplateData(newTemplateData || updatedTemplateData);
+
+                // Update open files
+                const updatedOpenFiles = openFiles.map((f) =>
+                    f.id === targetFileId
+                        ? {
+                            ...f,
+                            content: fileToSave.content,
+                            originalContent: fileToSave.content,
+                            hasUnsavedChanges: false,
+                        }
+                        : f
+                );
+                setOpenFiles(updatedOpenFiles);
+
+                toast.success(
+                    `Saved ${fileToSave.filename}.${fileToSave.fileExtension}`
+                );
+            } catch (error) {
+                console.error("Error saving file:", error);
+                toast.error(
+                    `Failed to save ${fileToSave.filename}.${fileToSave.fileExtension}`
+                );
+                throw error;
+            }
+        },
+        [
+            activeFileId,
+            openFiles,
+            writeFileSync,
+            instance,
+            saveTemplateData,
+            setTemplateData,
+            setOpenFiles,
+        ]
+    );
+
+    const handleSaveAll = async () => {
+        const unsavedFiles = openFiles.filter((f) => f.hasUnsavedChanges);
+
+        if (unsavedFiles.length === 0) {
+            toast.info("No unsaved changes");
+            return;
+        }
+
+        try {
+            await Promise.all(unsavedFiles.map((f) => handleSave(f.id)));
+            toast.success(`Saved ${unsavedFiles.length} file(s)`);
+        } catch (error) {
+            toast.error("Failed to save some files");
+        }
+    };
+
+    // Add event to save file by click ctrl + s
+    React.useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.ctrlKey && e.key === "s") {
+                e.preventDefault();
+                handleSave();
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [handleSave]);
 
     // Error state
     if (error) {
@@ -120,7 +312,18 @@ const Page = () => {
     return (
         <TooltipProvider>
             <>
-                <TemplateFileTree data={templateData!} onFileSelect={handleFileSelect} selectedFile={activeFile} />
+                <TemplateFileTree
+                    data={templateData!}
+                    onFileSelect={handleFileSelect}
+                    selectedFile={activeFile}
+                    title="File Explorer"
+                    onAddFile={wrappedHandleAddFile}
+                    onAddFolder={wrappedHandleAddFolder}
+                    onDeleteFile={wrappedHandleDeleteFile}
+                    onDeleteFolder={wrappedHandleDeleteFolder}
+                    onRenameFile={wrappedHandleRenameFile}
+                    onRenameFolder={wrappedHandleRenameFolder}
+                />
 
                 <SidebarInset>
                     <header className='flex h-16 shrink-0 items-center gap-2 border-b px-4'>
@@ -144,7 +347,7 @@ const Page = () => {
                                     <TooltipTrigger asChild>
                                         <Button size={"sm"}
                                             variant={"outline"}
-                                            onClick={() => { }}
+                                            onClick={() => handleSave()}
                                             disabled={!activeFile || !activeFile.hasUnsavedChanges}>
 
                                             <Save className='size-4' />
@@ -161,27 +364,20 @@ const Page = () => {
                                         <Button
                                             size="sm"
                                             variant="outline"
-                                            onClick={() => { }}
+                                            onClick={handleSaveAll}
                                             disabled={!hasUnsavedChanges}>
                                             <Save className='h-4 w-4' /> All
                                         </Button>
                                     </TooltipTrigger>
-                                    <TooltipContent>Save All (Ctrl+Shift+5)</TooltipContent>
+                                    <TooltipContent>Save All (Ctrl+Shift+S)</TooltipContent>
                                 </Tooltip>
 
                                 {/* {TODO: TOGGLEAT} */}
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button
-                                            size='sm'
-                                            variant="outline"
-                                            onClick={() => { }}
-                                            disabled={!hasUnsavedChanges}>
-                                            <Bot className="h-4 w-4" />
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Toggle AI</TooltipContent>
-                                </Tooltip>
+                                <ToggleAI
+                                isEnabled={aiSuggestion.isEnabled}
+                                onToggle={aiSuggestion.toggleEnabled}
+                                suggestionLoading={aiSuggestion.isLoading}
+                                />
 
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
@@ -275,6 +471,24 @@ const Page = () => {
                                                     onContentChange={(value) =>
                                                         activeFileId && updateFileContent(activeFileId, value)
                                                     }
+                                                    suggestion={aiSuggestion.suggestion}
+                                                    suggestionLoading={aiSuggestion.isLoading}
+                                                    suggestionPosition={aiSuggestion.position}
+                                                    onAcceptSuggestion={(editor , monaco) => { 
+                                                         if (editor && monaco) {
+                                                            aiSuggestion.acceptSuggestion(editor , monaco)
+                                                        }
+                                                         }}
+                                                    onRejectSuggestion={(editor)=> { 
+                                                        if (editor) { 
+                                                            aiSuggestion.rejectSuggestion(editor)
+                                                    }
+                                                }}
+                                                    onTriggerSuggestion={(type, editor) => {
+                                                        if (editor) {
+                                                        aiSuggestion.fetchSuggestion(type, editor)
+                                                    }
+                                                }}
                                                 />
 
 
@@ -303,7 +517,7 @@ const Page = () => {
                                     </div>
                                 </div>
                             ) : (
-                                <div className='flex flex-cal h-full items-center justify-center text-muted-foreground gap-4'>
+                                <div className='flex flex-col h-full items-center justify-center text-muted-foreground gap-4'>
                                     <FileText className='size-16 text-gray-300' />
                                     <div className='text-center'>
                                         <p className='text-lg font-medium'>No Files Open</p>
