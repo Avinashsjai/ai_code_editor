@@ -69,6 +69,29 @@ const TemplateFileTree = ({
     setIsNewFolderDialogOpen(true)
   }
 
+  const handleCreateFile = (filename: string, extension: string) => {
+    if(onAddFile && isRootFolder) {
+      const newFile: TemplateFile = {
+        filename,
+        fileExtension: extension,
+        content: "",
+      }
+      onAddFile(newFile, "")
+    }
+    setIsNewFileDialogOpen(false)
+  }
+
+  const handleCreateFolder = (folderName: string) =>{
+    if (onAddFolder && isRootFolder) {
+      const newFolder: TemplateFolder = {
+        folderName,
+        items: [],
+      }
+      onAddFolder(newFolder, "")
+    }
+    setIsNewFolderDialogOpen(false)
+  }
+
 
   return (
     <Sidebar>
@@ -143,12 +166,12 @@ const TemplateFileTree = ({
       <NewFileDialog
         isOpen={isNewFileDialogOpen}
         onClose={() => { setIsNewFileDialogOpen(false) }}
-        onCreateFile={() => { }}
+        onCreateFile={handleCreateFile}
       />
       <NewFolderDialog
         isOpen={isNewFolderDialogOpen}
         onClose={() => setIsNewFolderDialogOpen(false)}
-        onCreateFolder={() => { }}
+        onCreateFolder={handleCreateFolder}
       />
 
     </Sidebar>
@@ -283,30 +306,35 @@ export function NewFolderDialog({ isOpen, onClose, onCreateFolder }: NewFolderDi
 interface RenameFileDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onRename: (newName: string) => void;
-  currentName: string;
+  onRename: (filename: string, extension: string) => void;
+  currentFilename:string;
+  currentExtension: string;
 }
 
 export function RenameFileDialog({
   isOpen,
   onClose,
   onRename,
-  currentName,
+  currentFilename,
+  currentExtension,
 }: RenameFileDialogProps) {
-  const [newName, setNewName] = React.useState(currentName);
+  const [fileName, setFileName] = React.useState(currentFilename);
+  const [extension, setExtension ] = React.useState(currentExtension);
 
   // Update state when dialog opens with new currentName
   React.useEffect(() => {
     if (isOpen) {
-      setNewName(currentName);
+      setFileName(currentFilename)
+      setExtension(currentExtension);
     }
-  }, [isOpen, currentName]);
+  }, [isOpen, currentFilename, currentExtension]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmedName = newName.trim();
-    if (trimmedName && trimmedName !== currentName) {
-      onRename?.(trimmedName);
+    const trimmedName = fileName.trim();
+    const trimmedExt = extension.trim();
+    if (trimmedName && (trimmedName !== currentFilename || trimmedExt !== currentExtension)) {
+      onRename?.(trimmedName, trimmedExt);
     }
     onClose();
   };
@@ -328,11 +356,24 @@ export function RenameFileDialog({
               </Label>
               <Input
                 id="filename"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
+                value={fileName}
+                onChange={(e) => setFileName(e.target.value)}
                 className="col-span-2"
                 autoFocus
                 placeholder="e.g., page.tsx"
+              />
+            </div>
+
+            <div className="grid grid-cols-3 items-center gap-4">
+              <Label htmlFor="extension" className="text-right">
+                Extension
+              </Label>
+              <Input
+                id="extension"
+                value={extension}
+                onChange={(e) => setExtension(e.target.value)}
+                className="col-span-2"
+                placeholder="e.g., tsx, js, css"
               />
             </div>
           </div>
@@ -343,7 +384,7 @@ export function RenameFileDialog({
             </Button>
             <Button
               type="submit"
-              disabled={!newName.trim() || newName.trim() === currentName}
+              disabled={!fileName.trim() || (fileName.trim() === currentFilename && extension.trim() === currentExtension)}
             >
               Rename
             </Button>

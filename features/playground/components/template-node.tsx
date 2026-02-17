@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuContent, } from '@/aicode-starters/vite-shadcn/src/components/ui/dropdown-menu';
 import { DropdownMenuSeparator } from '@radix-ui/react-dropdown-menu';
 import { patchFetch } from 'next/dist/build/templates/app-route';
-import { NewFileDialog, NewFolderDialog, RenameFolderDialog } from './template-file-tree';
+import { NewFileDialog, NewFolderDialog, RenameFolderDialog, RenameFileDialog   } from './template-file-tree';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogTitle, AlertDialogFooter, AlertDialogHeader } from '@/components/ui/alert-dialog';
 
 
@@ -85,7 +85,7 @@ const TemplateNode = ({
             setIsDeleteDialogOpen(true)
         }
 
-        const csonfirmDelete = () => {
+        const confirmDelete = () => {
             onDeleteFile?.(file, path)
             setIsDeleteDialogOpen(false)
         }
@@ -113,16 +113,43 @@ const TemplateNode = ({
                         <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={handleRename}>
                                 <Edit3 className="mr-2 h-4 w-4" />
-                                Rename File
+                                Rename 
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={handleDelete} className='text-destructive'>
                                 <Trash2 className="mr-2 h-4 w-4" />
-                                Delete File
+                                Delete 
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
+
+                <RenameFileDialog
+                isOpen={isRenameDialogOpen}
+                onClose={() => setIsRenameDialogOpen(false)}
+                onRename={handleRenameSubmit}
+                currentFilename={file.filename}
+                currentExtension={file.fileExtension}
+                />
+
+                <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Delete File</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Are you sure you want to delete "{fileName}"? This action cannot be undone.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction 
+                            onClick={confirmDelete}
+                            className='bg-destructive text-destructive-foreground hove:bg-destructive/90'>
+                                Delete
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             </SidebarMenuItem>
         )
     }
@@ -168,7 +195,7 @@ const TemplateNode = ({
         const handleCreateFolder = (foldername: string) => {
             if (onAddFolder) {
                 const newFolder: TemplateFolder = {
-                    folderName,
+                    folderName:foldername,
                     items: [],
                 }
                 onAddFolder(newFolder, currentPath)
