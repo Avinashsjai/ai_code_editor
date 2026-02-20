@@ -17,7 +17,6 @@ import { useFileExplorer } from '@/features/playground/hooks/useFileExplorer';
 import type { TemplateFile } from "@/features/playground/lib/path-to-json";
 import { DropdownMenu, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-// import { DropdownMenuSeparator } from '@radix-ui/react-dropdown-menu';
 import TemplateFileTree from '@/features/playground/components/template-file-tree';
 import {PlaygroundEditor} from '@/features/playground/components/playground-editor';
 import { UseWebContainer } from '@/features/webContainers/hooks/useWebContainer';
