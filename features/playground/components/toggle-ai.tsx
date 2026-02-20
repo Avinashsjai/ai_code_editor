@@ -1,11 +1,25 @@
 "use client"
-import React from 'react'
+import React  from 'react'
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Progress } from '@/components/ui/progress';
 import { Badge } from "@/components/ui/badge";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 import { Bot, Code, FileText, Import, Loader2, Power, PowerOff, Braces, Variable } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { AIChatSidePanel } from "@/features/ai-chat/ai-chat-sidepanel";
+
+
 
 interface ToggleAIProps {
     isEnabled: boolean;
@@ -15,14 +29,35 @@ interface ToggleAIProps {
     activeFeature?: string;
 }
 
-const ToggleAI = ({
-    isEnabled,
-    onToggle,
-    suggestionLoading,
-    loadingProgress = 0,
-    activeFeature
-}: ToggleAIProps) => {
+const ToggleAI: React.FC<ToggleAIProps> = ({
+  isEnabled,
+  onToggle,
+
+  suggestionLoading,
+  loadingProgress = 0,
+  activeFeature,
+}) => {
+
+    const [isChatOpen , setIsChatOpen] = useState(false);
+
+    // Dummy handler for code insertion from AI chat panel
+  const handleInsertCode = (code: string, fileName?: string, position?: { line: number; column: number }) => {
+    // TODO: Implement actual code insertion logic
+    // For now, just log the code and info
+    console.log("Insert code:", { code, fileName, position });
+    // You can add your integration with the editor here
+  };
+
+  // Dummy handler for running code from AI chat panel
+  const handleRunCode = (code: string, language: string) => {
+    console.log("Run code:", { code, language });
+  };
+
+  // Dummy activeFile and cursorPosition for demonstration
+  const activeFile = { name: "example.ts", content: "// file content" };
+  const cursorPosition = { line: 1, column: 1 };
     return (
+        <>
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button
@@ -124,7 +159,7 @@ const ToggleAI = ({
                 <DropdownMenuSeparator />
 
                 <DropdownMenuItem
-                    onClick={() => { }}
+                    onClick={() => setIsChatOpen(true)}
                     className='py-2.5 cursor-pointer'>
                     <div className='flex items-center gap-3 w-full'>
                         <FileText className='size-4 text-muted-forground' />
@@ -138,6 +173,19 @@ const ToggleAI = ({
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
+
+        <AIChatSidePanel
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        onInsertCode={handleInsertCode}
+        onRunCode={handleRunCode}
+        activeFileName={activeFile?.name}
+        activeFileContent={activeFile?.content}
+        activeFileLanguage="TypeScript" // Assuming TypeScript as the language
+        cursorPosition={cursorPosition}
+        theme="dark"
+      />
+        </>
     );
 };
 

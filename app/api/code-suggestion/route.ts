@@ -1,91 +1,101 @@
-import { analyseComplexValue } from "framer-motion";
-import { languages } from "monaco-editor";
-import { type NextRequest, NextResponse} from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 
-interface CodeSuggestionRequest{
-    fileContent:string;
-    cursorLine:number;
-    cursorColumn:number;
-    suggestionType:string;
-    fileName?:string
+interface CodeSuggestionRequest {
+  fileContent: string;
+  cursorLine: number;
+  cursorColumn: number;
+  suggestionType: string;
+  fileName?: string;
 }
 
-interface CodeContext{
-    language: string;
-    framework: string;
-    beforeContext: string;
-    currentLine: string;
-    afterContext: string;
-    cursorPosition: { line: number; column: number }
-    isInFunction: boolean;
-    isInClass: boolean;
-    isAfterComment: boolean;
-    incompletePatterns: string[]
+interface CodeContext {
+  language: string;
+  framework: string;
+  beforeContext: string;
+  currentLine: string;
+  afterContext: string;
+  cursorPosition: { line: number; column: number };
+  isInFunction: boolean;
+  isInClass: boolean;
+  isAfterComment: boolean;
+  incompletePatterns: string[];
 }
 
-export async function POST(request:NextRequest) {
-    try{
-        const body:CodeSuggestionRequest = await request.json();
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
-        const {fileContent, cursorColumn , cursorLine, suggestionType , fileName} = body;
+export async function POST(request: NextRequest) {
+  try {
+    const body: CodeSuggestionRequest = await request.json();
+    const { fileContent, cursorColumn, cursorLine, suggestionType, fileName } = body;
 
-        //Validate input
-        if (!fileContent || cursorLine < 0 || cursorColumn < 0 || !suggestionType) {
-            return NextResponse.json({ error: "Invalid input parameters"} , {status: 400})
-        }
-
-        const context = analyzeCodeContext(fileContent, cursorLine, cursorColumn, fileName)
-
-        //Build AI prompt
-        const prompt = buildPrompt(context , suggestionType)
-
-        //call ai service
-        const suggestion = await generateSuggestion(prompt);
-
-        return NextResponse.json({
-            suggestion,
-            context,
-            metadata:{
-                language:context.language,
-                framework: context.framework,
-                position: context.cursorPosition,
-                generatedAt: new Date().toISOString(),
-            }
-        })
-
-    } catch (error) {
-          console.error("Context analysis error:", error)
-          //@ts-ignore
-          return NextResponse.json({ error: "Internal server error", message: error.message}, {status: 500})
+    // Validate input
+    if (!fileContent || cursorLine < 0 || cursorColumn < 0 || !suggestionType) {
+      return NextResponse.json({ error: "Invalid input parameters" }, { status: 400 });
     }
-    
-}
 
+    // Check API key
+    if (!GROQ_API_KEY) {
+      return NextResponse.json({ error: "AI service not configured" }, { status: 500 });
+    }
+
+    const context = analyzeCodeContext(fileContent, cursorLine, cursorColumn, fileName);
+
+    // Build AI prompt
+    const prompt = buildPrompt(context, suggestionType);
+
+    // Call AI service
+    const suggestion = await generateSuggestion(prompt);
+
+    return NextResponse.json({
+      suggestion,
+      context,
+      metadata: {
+        language: context.language,
+        framework: context.framework,
+        position: context.cursorPosition,
+        generatedAt: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error("Context analysis error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+    return NextResponse.json(
+      { error: "Internal server error", message: errorMessage },
+      { status: 500 }
+    );
+  }
+}
 
 /**
  * Analyze the code context around the cursor position
  */
-function analyzeCodeContext(content: string, line: number, column: number, fileName?: string): CodeContext {
-  const lines = content.split("\n")
-  const currentLine = lines[line] || ""
+function analyzeCodeContext(
+  content: string,
+  line: number,
+  column: number,
+  fileName?: string
+): CodeContext {
+  const lines = content.split("\n");
+  const currentLine = lines[line] || "";
 
   // Get surrounding context (10 lines before and after)
-  const contextRadius = 10
-  const startLine = Math.max(0, line - contextRadius)
-  const endLine = Math.min(lines.length, line + contextRadius)
+  const contextRadius = 10;
+  const startLine = Math.max(0, line - contextRadius);
+  const endLine = Math.min(lines.length, line + contextRadius);
 
-  const beforeContext = lines.slice(startLine, line).join("\n")
-  const afterContext = lines.slice(line + 1, endLine).join("\n")
+  const beforeContext = lines.slice(startLine, line).join("\n");
+  const afterContext = lines.slice(line + 1, endLine).join("\n");
 
   // Detect language and framework
-  const language = detectLanguage(content, fileName)
-  const framework = detectFramework(content)
+  const language = detectLanguage(content, fileName);
+  const framework = detectFramework(content);
 
   // Analyze code patterns
-  const isInFunction = detectInFunction(lines, line)
-  const isInClass = detectInClass(lines, line)
-  const isAfterComment = detectAfterComment(currentLine, column)
-  const incompletePatterns = detectIncompletePatterns(currentLine, column)
+  const isInFunction = detectInFunction(lines, line);
+  const isInClass = detectInClass(lines, line);
+  const isAfterComment = detectAfterComment(currentLine, column);
+  const incompletePatterns = detectIncompletePatterns(currentLine, column);
 
   return {
     language,
@@ -98,7 +108,7 @@ function analyzeCodeContext(content: string, line: number, column: number, fileN
     isInClass,
     isAfterComment,
     incompletePatterns,
-  }
+  };
 }
 
 /**
@@ -127,56 +137,64 @@ Instructions:
 3. Follow ${context.language} best practices
 4. Make the suggestion contextually appropriate
 
-Generate suggestion:`
+Generate suggestion:`;
 }
 
 /**
- * Generate suggestion using AI service
+ * Generate suggestion using AI service (Groq)
  */
 async function generateSuggestion(prompt: string): Promise<string> {
   try {
-    // Replace this with your actual AI service call
-    const response = await fetch("http://localhost:11434/api/generate", {
+    const response = await fetch(GROQ_API_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        Authorization: `Bearer ${GROQ_API_KEY}`,
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({
-        model: "codellama:latest",
-        prompt,
-        stream: false,
-        options: {
-          temperature: 0.7,
-          max_tokens: 300,
-        },
+        model: "llama-3.1-8b-instant",
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert code completion assistant.",
+          },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.7,
+        max_tokens: 300,
       }),
-    })
+    });
 
     if (!response.ok) {
-      throw new Error(`AI service error: ${response.statusText}`)
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        `Groq API error: ${response.status} - ${errorData.error?.message || response.statusText}`
+      );
     }
 
-    const data = await response.json()
-    let suggestion = data.response
+    const data = await response.json();
+    let suggestion = data.choices?.[0]?.message?.content || "";
 
     // Clean up the suggestion
     if (suggestion.includes("```")) {
-      const codeMatch = suggestion.match(/```[\w]*\n?([\s\S]*?)```/)
-      suggestion = codeMatch ? codeMatch[1].trim() : suggestion
+      const codeMatch = suggestion.match(/```[\w]*\n?([\s\S]*?)```/);
+      suggestion = codeMatch ? codeMatch[1].trim() : suggestion;
     }
 
     // Remove cursor markers if present
-    suggestion = suggestion.replace(/\|CURSOR\|/g, "").trim()
+    suggestion = suggestion.replace(/\|CURSOR\|/g, "").trim();
 
-    return suggestion
+    return suggestion;
   } catch (error) {
-    console.error("AI generation error:", error)
-    return "// AI suggestion unavailable"
+    console.error("AI generation error:", error);
+    return "// AI suggestion unavailable";
   }
 }
 
 // Helper functions for code analysis
 function detectLanguage(content: string, fileName?: string): string {
   if (fileName) {
-    const ext = fileName.split(".").pop()?.toLowerCase()
+    const ext = fileName.split(".").pop()?.toLowerCase();
     const extMap: Record<string, string> = {
       ts: "TypeScript",
       tsx: "TypeScript",
@@ -187,67 +205,67 @@ function detectLanguage(content: string, fileName?: string): string {
       go: "Go",
       rs: "Rust",
       php: "PHP",
-    }
-    if (ext && extMap[ext]) return extMap[ext]
+    };
+    if (ext && extMap[ext]) return extMap[ext];
   }
 
   // Content-based detection
-  if (content.includes("interface ") || content.includes(": string")) return "TypeScript"
-  if (content.includes("def ") || content.includes("import ")) return "Python"
-  if (content.includes("func ") || content.includes("package ")) return "Go"
+  if (content.includes("interface ") || content.includes(": string"))
+    return "TypeScript";
+  if (content.includes("def ") || content.includes("import ")) return "Python";
+  if (content.includes("func ") || content.includes("package ")) return "Go";
 
-  return "JavaScript"
+  return "JavaScript";
 }
 
 function detectFramework(content: string): string {
-  if (content.includes("import React") || content.includes("useState")) return "React"
-  if (content.includes("import Vue") || content.includes("<template>")) return "Vue"
-  if (content.includes("@angular/") || content.includes("@Component")) return "Angular"
-  if (content.includes("next/") || content.includes("getServerSideProps")) return "Next.js"
+  if (content.includes("import React") || content.includes("useState"))
+    return "React";
+  if (content.includes("import Vue") || content.includes("<template>"))
+    return "Vue";
+  if (content.includes("@angular/") || content.includes("@Component"))
+    return "Angular";
+  if (content.includes("next/") || content.includes("getServerSideProps"))
+    return "Next.js";
 
-  return "None"
+  return "None";
 }
 
 function detectInFunction(lines: string[], currentLine: number): boolean {
   for (let i = currentLine - 1; i >= 0; i--) {
-    const line = lines[i]
-    if (line?.match(/^\s*(function|def|const\s+\w+\s*=|let\s+\w+\s*=)/)) return true
-    if (line?.match(/^\s*}/)) break
+    const line = lines[i];
+    if (line?.match(/^\s*(function|def|const\s+\w+\s*=|let\s+\w+\s*=)/))
+      return true;
+    if (line?.match(/^\s*}/)) break;
   }
-  return false
+  return false;
 }
 
 function detectInClass(lines: string[], currentLine: number): boolean {
   for (let i = currentLine - 1; i >= 0; i--) {
-    const line = lines[i]
-    if (line?.match(/^\s*(class|interface)\s+/)) return true
+    const line = lines[i];
+    if (line?.match(/^\s*(class|interface)\s+/)) return true;
   }
-  return false
+  return false;
 }
 
 function detectAfterComment(line: string, column: number): boolean {
-  const beforeCursor = line.substring(0, column)
-  return /\/\/.*$/.test(beforeCursor) || /#.*$/.test(beforeCursor)
+  const beforeCursor = line.substring(0, column);
+  return /\/\/.*$/.test(beforeCursor) || /#.*$/.test(beforeCursor);
 }
 
 function detectIncompletePatterns(line: string, column: number): string[] {
-  const beforeCursor = line.substring(0, column)
-  const patterns: string[] = []
+  const beforeCursor = line.substring(0, column);
+  const patterns: string[] = [];
 
-  if (/^\s*(if|while|for)\s*\($/.test(beforeCursor.trim())) patterns.push("conditional")
-  if (/^\s*(function|def)\s*$/.test(beforeCursor.trim())) patterns.push("function")
-  if (/\{\s*$/.test(beforeCursor)) patterns.push("object")
-  if (/\[\s*$/.test(beforeCursor)) patterns.push("array")
-  if (/=\s*$/.test(beforeCursor)) patterns.push("assignment")
-  if (/\.\s*$/.test(beforeCursor)) patterns.push("method-call")
+  if (/^\s*(if|while|for)\s*\($/.test(beforeCursor.trim()))
+    patterns.push("conditional");
+  if (/^\s*(function|def)\s*$/.test(beforeCursor.trim()))
+    patterns.push("function");
+  if (/\{\s*$/.test(beforeCursor)) patterns.push("object");
+  if (/\[\s*$/.test(beforeCursor)) patterns.push("array");
+  if (/=\s*$/.test(beforeCursor)) patterns.push("assignment");
+  if (/\.\s*$/.test(beforeCursor)) patterns.push("method-call");
 
-  return patterns
-}
-
-function getLastNonEmptyLine(lines: string[], currentLine: number): string {
-  for (let i = currentLine - 1; i >= 0; i--) {
-    const line = lines[i]
-    if (line.trim() !== "") return line
-  }
-  return ""
+  return patterns;
 }
