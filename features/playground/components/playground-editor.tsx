@@ -5,6 +5,11 @@ import Editor, { type Monaco } from "@monaco-editor/react"
 import { configureMonaco, defaultEditorOptions, getEditorLanguage } from "@/features/playground/lib/editor-config"
 import type { TemplateFile } from "@/features/playground/lib/path-to-json"
 
+export interface EditorApi {
+  insertAtCursor: (code: string) => void
+  getCursorPosition: () => { line: number; column: number }
+}
+
 interface PlaygroundEditorProps {
   activeFile: TemplateFile | undefined
   content: string
@@ -15,6 +20,7 @@ interface PlaygroundEditorProps {
   onAcceptSuggestion: (editor: any, monaco: any) => void
   onRejectSuggestion: (editor: any) => void
   onTriggerSuggestion: (type: string, editor: any) => void
+  onEditorApiReady?: (api: EditorApi) => void
 }
 
 export const PlaygroundEditor = ({
@@ -27,6 +33,7 @@ export const PlaygroundEditor = ({
   onAcceptSuggestion,
   onRejectSuggestion,
   onTriggerSuggestion,
+  onEditorApiReady,
 }: PlaygroundEditorProps) => {
   const editorRef = useRef<any>(null)
   const monacoRef = useRef<Monaco | null>(null)
@@ -171,6 +178,10 @@ export const PlaygroundEditor = ({
       // Clean the suggestion text (remove \r characters)
       const cleanSuggestionText = currentSuggestion.text.replace(/\r/g, "")
 
+      // CRITICAL: Hide Monaco's inline suggestion FIRST so Monaco's Tab handler
+      // doesn't also insert when we do (prevents double/triple insertion)
+      editor.trigger("ai", "editor.action.inlineSuggest.hide", null)
+
       console.log("ACCEPTING suggestion:", cleanSuggestionText.substring(0, 50) + "...")
 
       // Get current cursor position to validate
@@ -313,6 +324,8 @@ export const PlaygroundEditor = ({
 
     editor.updateOptions({
       ...defaultEditorOptions,
+      // CRITICAL: Disable Monaco's Tab-to-accept so only our handler inserts (prevents 2x insertion)
+      tabCompletion: "off",
       // Enable inline suggestions but with specific settings to prevent conflicts
       inlineSuggest: {
         enabled: true,
@@ -482,6 +495,29 @@ export const PlaygroundEditor = ({
     })
 
     updateEditorLanguage()
+
+    if (onEditorApiReady) {
+      onEditorApiReady({
+        insertAtCursor: (code: string) => {
+          if (!editorRef.current || !monacoRef.current) return
+          const position = editorRef.current.getPosition()
+          if (!position) return
+          const range = new monacoRef.current.Range(
+            position.lineNumber,
+            position.column,
+            position.lineNumber,
+            position.column
+          )
+          editorRef.current.executeEdits("ai-chat", [{ range, text: code }])
+        },
+        getCursorPosition: () => {
+          if (!editorRef.current) return { line: 0, column: 0 }
+          const pos = editorRef.current.getPosition()
+          if (!pos) return { line: 0, column: 0 }
+          return { line: pos.lineNumber - 1, column: pos.column - 1 }
+        },
+      })
+    }
   }
 
   const updateEditorLanguage = () => {

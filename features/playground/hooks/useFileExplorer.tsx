@@ -5,14 +5,6 @@ import { generateFileId } from '../lib';
 import { set } from 'date-fns';
 import { usePlayground } from "./usePlayground";
 
-interface OpenFile extends TemplateFile {
-    id: string;
-    hasUnsavedChanges: boolean;
-    content: string;
-    originalContent: string;
-}
-
-
 interface FileExplorerState {
     playgroundId: string;
     templateData: TemplateFolder | null;
@@ -66,6 +58,13 @@ interface FileExplorerState {
         saveTemplateData: (data: TemplateFolder) => Promise<void>
     ) => Promise<void>;
     updateFileContent: (fileId: string, content: string) => void;
+}
+
+interface OpenFile extends TemplateFile {
+  id: string;
+  hasUnsavedChanges: boolean;
+  content: string;
+  originalContent: string;
 }
 
 export const useFileExplorer = create<FileExplorerState>((set, get) => ({

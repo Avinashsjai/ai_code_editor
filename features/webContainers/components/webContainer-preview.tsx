@@ -1,4 +1,4 @@
-"use clinet"
+"use client"
 import React, { useEffect, useState, useRef } from 'react'
 // import type { TemplateFolder } from "@/features/playground/lib/path-to-json";
 import { WebContainer } from '@webcontainer/api';

@@ -42,7 +42,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   MoreHorizontal,
   Edit3,
@@ -51,14 +52,81 @@ import {
   Copy,
   Download,
   Eye,
+  Star,
+  StarOff,
 } from "lucide-react";
+import { MarkedToggleButton } from "./toggle-star";
+import { toggleStarMarked } from "@/features/playground/actions";
+
+function InlineStarButton({
+  starred,
+  projectId,
+  onStarToggle,
+}: {
+  starred: boolean
+  projectId: string
+  onStarToggle?: (projectId: string, starred: boolean) => Promise<void>
+}) {
+  const router = useRouter()
+  const [isStarred, setIsStarred] = useState(starred)
+  const [isLoading, setIsLoading] = useState(false)
+
+  useEffect(() => {
+    setIsStarred(starred)
+  }, [starred])
+
+  const handleClick = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (isLoading) return
+
+    const newState = !isStarred
+    setIsStarred(newState)
+    setIsLoading(true)
+
+    try {
+      const res = await toggleStarMarked(projectId, newState)
+      if (res.success && !res.error) {
+        toast.success(newState ? "Added to Favorites" : "Removed from Favorites")
+        router.refresh()
+        onStarToggle?.(projectId, newState)
+      } else {
+        setIsStarred(!newState)
+        toast.error("Failed to update favorite")
+      }
+    } catch (err) {
+      setIsStarred(!newState)
+      toast.error("Failed to update favorite")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="h-8 w-8 shrink-0 text-muted-foreground hover:text-amber-500"
+      onClick={handleClick}
+      disabled={isLoading}
+    >
+      {isStarred ? (
+        <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
+      ) : (
+        <StarOff className="h-4 w-4" />
+      )}
+      <span className="sr-only">{isStarred ? "Remove from favorites" : "Add to favorites"}</span>
+    </Button>
+  )
+}
 import { toast } from "sonner";
 
 interface ProjectTableProps {
   projects: Project[]
-  onUpdateProject?: Function;
-  onDeleteProject?: Function;
-  onDuplicateProject?: Function;
+  onUpdateProject?: (id: string, data: EditProjectData) => Promise<void>
+  onDeleteProject?: (id: string) => Promise<void>
+  onDuplicateProject?: (project: Project) => Promise<void>
+  onStarToggle?: (projectId: string, starred: boolean) => Promise<void>
 };
 
 interface EditProjectData {
@@ -71,13 +139,13 @@ export default function ProjectTable({
   onDeleteProject,
   onDuplicateProject,
   onUpdateProject,
+  onStarToggle,
 }: ProjectTableProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [editData, setEditData] = useState<EditProjectData>({ title: "", description: "", });
   const [isLoading, setIsLoading] = useState(false);
-  const [favoutrie, setFavourite] = useState(false);
 
 
   const handleDuplicateProject = async (project: Project) => {
@@ -170,7 +238,13 @@ export default function ProjectTable({
             {projects.map((project) => (
               <TableRow key={project.id}>
                 <TableCell className="font-medium">
-                  <div className="flex flex-col">
+                  <div className="flex items-center gap-2">
+                    <InlineStarButton
+                      starred={project.Starmark?.[0]?.isMarked ?? false}
+                      projectId={project.id}
+                      onStarToggle={onStarToggle}
+                    />
+                    <div className="flex flex-col">
                     <Link
                       href={`/playground/${project.id}`}
                       className="hover:underline"
@@ -182,6 +256,7 @@ export default function ProjectTable({
                       {project.description}
                     </span>
 
+                  </div>
                   </div>
                 </TableCell>
                 <TableCell>
@@ -219,10 +294,10 @@ export default function ProjectTable({
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48">
                       <DropdownMenuItem asChild>
-                        {/* <MarkedToggleButton
-                          markedForRevision={project.Starmark[0]?.isMarked}
+                        <MarkedToggleButton
+                          markedForRevision={project.Starmark?.[0]?.isMarked ?? false}
                           id={project.id}
-                        /> */}
+                        />
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
                         <Link

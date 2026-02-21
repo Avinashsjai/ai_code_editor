@@ -91,7 +91,7 @@ model TemplateFile {
 }
 
 model StarMark {
-  id          String   @id @default(cuid()) @map("_id") @db.ObjectId
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
   userId      String   @db.ObjectId
   playgroundId String  @db.ObjectId
   isMarked    Boolean  

@@ -1,6 +1,7 @@
 "use client"; // Add this at the top
 
 import React from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Chrome, Github } from "lucide-react";
@@ -40,13 +41,13 @@ const SignInFormClient = () => {
             <CardFooter>
                 <p className="text-sm text-center text-gray-600 dark:text-gray-400 w-full">
                     By signing in, you agree to our {" "}
-                    <a href="#" className="underline hover:text-primary">
+                    <Link href="/terms" className="underline hover:text-primary">
                         Terms of Service
-                    </a>
+                    </Link>
                     {" "} and {" "}
-                    <a href="#" className="underline hover:text-primary">
+                    <Link href="/privacy" className="underline hover:text-primary">
                         Privacy Policy
-                    </a>
+                    </Link>
                     .
                 </p>
             </CardFooter>
