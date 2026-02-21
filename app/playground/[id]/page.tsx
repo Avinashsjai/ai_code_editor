@@ -25,6 +25,7 @@ import { findFilePath } from "@/features/playground/lib";
 import { TemplateFolder } from '@/features/playground/types';
 import ToggleAI from '@/features/playground/components/toggle-ai';
 import { useAISuggestion } from '@/features/ai/hooks/useAISuggestion';
+import type { EditorApi } from '@/features/playground/components/playground-editor';
 
 const Page = () => {
     const { id } = useParams<{ id: string }>();
@@ -63,6 +64,46 @@ const Page = () => {
     } = UseWebContainer({ templateData })
 
     const lastSyncedContent = useRef<Map<string, string>>(new Map());
+    const editorApiRef = useRef<EditorApi | null>(null);
+
+    const handleInsertCode = useCallback(
+        (_code: string, _fileName?: string, _position?: { line: number; column: number }) => {
+            editorApiRef.current?.insertAtCursor(_code);
+            toast.success("Code inserted at cursor");
+        },
+        []
+    );
+
+    const handleRunCode = useCallback(async (code: string, language: string) => {
+        try {
+            const res = await fetch("/api/run-code", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ code, language }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                toast.success("Code executed", {
+                    description: data.output || "(no output)",
+                });
+            } else {
+                toast.error("Execution failed", {
+                    description: data.error || "Unknown error",
+                });
+            }
+        } catch (err) {
+            toast.error("Failed to run code", {
+                description: err instanceof Error ? err.message : "Network error",
+            });
+        }
+    }, []);
+
+    const getEditorLanguage = useCallback((ext: string): string => {
+        const map: Record<string, string> = {
+            ts: "typescript", tsx: "typescript", js: "javascript", jsx: "javascript",
+        };
+        return map[ext?.toLowerCase()] ?? "javascript";
+    }, []);
 
     useEffect(() => {
         setPlaygroundId(id);
@@ -74,6 +115,10 @@ const Page = () => {
         }
     }, [templateData, setTemplateData, openFiles.length])
 
+    const saveTemplateDataWrapper = useCallback(async (data: TemplateFolder): Promise<void> => {
+    await saveTemplateData(data);
+}, [saveTemplateData]);
+
 
     // Create wrapper functions that pass saveTemplateData
     const wrappedHandleAddFile = useCallback(
@@ -83,7 +128,7 @@ const Page = () => {
                 parentPath,
                 writeFileSync!,
                 instance,
-                saveTemplateData
+                saveTemplateDataWrapper
             );
         },
         [handleAddFile, writeFileSync, instance, saveTemplateData]
@@ -91,21 +136,21 @@ const Page = () => {
 
     const wrappedHandleAddFolder = useCallback(
         (newFolder: TemplateFolder, parentPath: string) => {
-            return handleAddFolder(newFolder, parentPath, instance, saveTemplateData);
+            return handleAddFolder(newFolder, parentPath, instance, saveTemplateDataWrapper);
         },
         [handleAddFolder, instance, saveTemplateData]
     );
 
     const wrappedHandleDeleteFile = useCallback(
         (file: TemplateFile, parentPath: string) => {
-            return handleDeleteFile(file, parentPath, saveTemplateData);
+            return handleDeleteFile(file, parentPath, saveTemplateDataWrapper);
         },
         [handleDeleteFile, saveTemplateData]
     );
 
     const wrappedHandleDeleteFolder = useCallback(
         (folder: TemplateFolder, parentPath: string) => {
-            return handleDeleteFolder(folder, parentPath, saveTemplateData);
+            return handleDeleteFolder(folder, parentPath, saveTemplateDataWrapper);
         },
         [handleDeleteFolder, saveTemplateData]
     );
@@ -122,7 +167,7 @@ const Page = () => {
                 newFilename,
                 newExtension,
                 parentPath,
-                saveTemplateData
+                saveTemplateDataWrapper
             );
         },
         [handleRenameFile, saveTemplateData]
@@ -134,7 +179,7 @@ const Page = () => {
                 folder,
                 newFolderName,
                 parentPath,
-                saveTemplateData
+                saveTemplateDataWrapper
             );
         },
         [handleRenameFolder, saveTemplateData]
@@ -253,17 +298,21 @@ const Page = () => {
         }
     };
 
-    // Add event to save file by click ctrl + s
+    // Add keyboard shortcuts: Ctrl+S (save current), Ctrl+Shift+S (save all)
     React.useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.ctrlKey && e.key === "s") {
                 e.preventDefault();
-                handleSave();
+                if (e.shiftKey) {
+                    handleSaveAll();
+                } else {
+                    handleSave();
+                }
             }
         };
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [handleSave]);
+    }, [handleSave, handleSaveAll]);
 
     // Error state
     if (error) {
@@ -371,11 +420,16 @@ const Page = () => {
                                     <TooltipContent>Save All (Ctrl+Shift+S)</TooltipContent>
                                 </Tooltip>
 
-                                {/* {TODO: TOGGLEAT} */}
                                 <ToggleAI
                                 isEnabled={aiSuggestion.isEnabled}
                                 onToggle={aiSuggestion.toggleEnabled}
                                 suggestionLoading={aiSuggestion.isLoading}
+                                onInsertCode={handleInsertCode}
+                                onRunCode={handleRunCode}
+                                activeFileName={activeFile ? `${activeFile.filename}.${activeFile.fileExtension}` : undefined}
+                                activeFileContent={activeFile?.content}
+                                activeFileLanguage={activeFile ? getEditorLanguage(activeFile.fileExtension) : undefined}
+                                cursorPosition={editorApiRef.current?.getCursorPosition()}
                                 />
 
                                 <DropdownMenu>
@@ -470,6 +524,7 @@ const Page = () => {
                                                     onContentChange={(value) =>
                                                         activeFileId && updateFileContent(activeFileId, value)
                                                     }
+                                                    onEditorApiReady={(api) => { editorApiRef.current = api; }}
                                                     suggestion={aiSuggestion.suggestion}
                                                     suggestionLoading={aiSuggestion.isLoading}
                                                     suggestionPosition={aiSuggestion.position}

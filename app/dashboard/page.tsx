@@ -2,7 +2,7 @@ import React from 'react'
 import AddNewaButton from '@/features/dashboard/components/add-new-button';
 import AddRepoButton from '@/features/dashboard/components/add-repo-button';
 import EmptyState from '@/components/ui/empty-state';
-import { deletProjectBYId, duplicatePrijectById, editProjectById, getAllPlaygroundForUser } from '@/features/dashboard/actions';
+import { deletProjectBYId, duplicateProjectById, editProjectById, getAllPlaygroundForUser } from '@/features/dashboard/actions';
 import ProjectTable from '@/features/dashboard/components/project-table';
 
 const page = async() => {
@@ -18,12 +18,10 @@ const page = async() => {
         {playgrounds && playgrounds.length === 0 ? (<EmptyState title='No projects found' description='Create a new project to get started' imageSrc='/empty-state.svg' />) : (
             //todo add playground list component here
            <ProjectTable 
-           //@ts-ignore
-           // TODO: NEED TO UPDATE THE TYPES OF THE PLAYGORUND
            projects={playgrounds || []}
            onDeleteProject={deletProjectBYId}
            onUpdateProject={editProjectById}
-           onDuplicateProject={duplicatePrijectById}
+           onDuplicateProject={duplicateProjectById}
 
            />
         )

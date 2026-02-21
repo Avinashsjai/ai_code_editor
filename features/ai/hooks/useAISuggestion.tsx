@@ -126,23 +126,15 @@ export const useAISuggestion = (): UseAISuggestionReturn => {
     };
   }, []);
 
-  const acceptSuggestion = useCallback((editor: any, monaco: any) => {
+  const acceptSuggestion = useCallback((editor: any) => {
     setState((currentState) => {
-      if (!currentState.suggestion || !currentState.position || !editor || !monaco) {
+      if (!editor || !currentState.suggestion) {
         return currentState;
       }
 
-      const { line, column } = currentState.position;
-      const sanitizedSuggestion = currentState.suggestion.replace(/^\d+:\s*/gm, "");
-
-      editor.executeEdits("", [
-        {
-          range: new monaco.Range(line, column, line, column),
-          text: sanitizedSuggestion,
-          forceMoveMarkers: true,
-        },
-      ]);
-
+      // Only clear state - the actual insertion is done by playground-editor's
+      // acceptCurrentSuggestion to prevent triple insertion (Monaco inline +
+      // our Tab handler + this would have all inserted the same text)
       if (editor && currentState.decoration.length > 0) {
         editor.deltaDecorations(currentState.decoration, []);
       }

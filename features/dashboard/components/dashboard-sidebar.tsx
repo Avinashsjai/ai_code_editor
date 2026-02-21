@@ -2,7 +2,7 @@
 
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupAction, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarRail } from "@/components/ui/sidebar";
 import { usePathname } from 'next/navigation';
-import react, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Zap, Code2, Compass, Database, FlameIcon, Home, Lightbulb, LucideIcon, Plus, Terminal, Settings, LayoutDashboard } from 'lucide-react';
@@ -33,6 +33,10 @@ const DashboardSidebar = ({ initialPlaygroundData }: { initialPlaygroundData: pl
     const [starredPlaygrounds, setStarredPlayground] = useState(initialPlaygroundData.filter((p) => p.starred));
     const [recentPlaygrounds, setRecentPlaygrounds] = useState(initialPlaygroundData);
 
+    useEffect(() => {
+        setStarredPlayground(initialPlaygroundData.filter((p) => p.starred));
+        setRecentPlaygrounds(initialPlaygroundData);
+    }, [initialPlaygroundData]);
 
 
     return (
@@ -60,7 +64,7 @@ const DashboardSidebar = ({ initialPlaygroundData }: { initialPlaygroundData: pl
                      <SidebarMenu>
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild isActive={pathname === "/dashboard"} tooltip={"Home"}>
-                                <Link href={"#"}>
+                                <Link href={"/dashboard"}>
                                     <LayoutDashboard className='size-4' />
                                     <span>Dashboard</span>
                                 </Link>
@@ -83,7 +87,9 @@ const DashboardSidebar = ({ initialPlaygroundData }: { initialPlaygroundData: pl
                     <SidebarGroupContent>
                         <SidebarMenu>
                             {starredPlaygrounds.length === 0 && recentPlaygrounds.length === 0 ? (
-                                <div className='text-center text-muted-foreground py-4 w-full'>Create Your Playgrounds</div>
+                                <div className='text-center text-muted-foreground py-4 w-full text-sm px-2'>Create Your Playgrounds</div>
+                            ) : starredPlaygrounds.length === 0 ? (
+                                <div className='text-center text-muted-foreground py-4 w-full text-sm px-2'>No starred projects. Star projects from the dashboard.</div>
                             ) : (
                                 starredPlaygrounds.map((playground) => {
                                     const IconComponent = lucideIconMap[playground.icon] || Code2;
@@ -135,7 +141,7 @@ const DashboardSidebar = ({ initialPlaygroundData }: { initialPlaygroundData: pl
                             )}
                             <SidebarMenuItem>
                                 <SidebarMenuButton asChild tooltip="View all">
-                                    <Link href="/playgrounds">
+                                    <Link href="/dashboard">
                                         <span className="text-sm text-muted-foreground">View all playgrounds</span>
                                     </Link>
                                 </SidebarMenuButton>

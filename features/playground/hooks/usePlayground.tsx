@@ -1,7 +1,7 @@
 import { useState, useEffect, use, useCallback } from "react";
 import { toast } from "sonner";
 import { TemplateFolder } from "../lib/path-to-json";
-import { getPlaygroundById, SaveUpdateCode } from "@/features/playground/actions";
+import { getPlaygroundById, SaveUpdatedCode } from "@/features/playground/actions";
 
 
 interface PlaygroundData {
@@ -18,7 +18,7 @@ interface UsePlaygroundReturn {
     isLoading: boolean;
     error: string | null;
     loadPlayground: () => Promise<void>;
-    saveTemplateData: (data: TemplateFolder) => Promise<void>;
+    saveTemplateData: (data: TemplateFolder) => Promise<TemplateFolder>;
 }
 
 export const usePlayground = (id: string): UsePlaygroundReturn => {
@@ -36,7 +36,7 @@ export const usePlayground = (id: string): UsePlaygroundReturn => {
             setError(null);
 
             const data = await getPlaygroundById(id);
-
+            //@ts-ignore
             setPlaygroundData(data);
 
             const rawContent = data?.templateFiles?.[0]?.content;
@@ -74,18 +74,17 @@ export const usePlayground = (id: string): UsePlaygroundReturn => {
         }
     }, [id]);
 
-    const saveTemplateData = useCallback(async (data: TemplateFolder) => {
-
+    const saveTemplateData = useCallback(async (data: TemplateFolder): Promise<TemplateFolder> => {
         try {
-            await SaveUpdateCode(id, data);
+            const response = await SaveUpdatedCode(id, data);
             setTemplateData(data);
             toast.success("Changes saved successfully");
+            return data; 
         } catch (error) {
             console.error("Error saving template data:", (error as Error).message);
             toast.error(`Failed to save changes: ${(error as Error).message}`);
             throw error;
         }
-
     }, [id]);
 
     useEffect(() => {

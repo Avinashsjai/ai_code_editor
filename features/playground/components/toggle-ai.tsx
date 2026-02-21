@@ -27,35 +27,49 @@ interface ToggleAIProps {
     suggestionLoading: boolean;
     loadingProgress?: number;
     activeFeature?: string;
+    onInsertCode?: (code: string, fileName?: string, position?: { line: number; column: number }) => void;
+    onRunCode?: (code: string, language: string) => void;
+    activeFileName?: string;
+    activeFileContent?: string;
+    activeFileLanguage?: string;
+    cursorPosition?: { line: number; column: number };
 }
 
 const ToggleAI: React.FC<ToggleAIProps> = ({
   isEnabled,
   onToggle,
-
   suggestionLoading,
   loadingProgress = 0,
   activeFeature,
+  onInsertCode: onInsertCodeProp,
+  onRunCode: onRunCodeProp,
+  activeFileName: activeFileNameProp,
+  activeFileContent: activeFileContentProp,
+  activeFileLanguage: activeFileLanguageProp,
+  cursorPosition: cursorPositionProp,
 }) => {
-
     const [isChatOpen , setIsChatOpen] = useState(false);
 
-    // Dummy handler for code insertion from AI chat panel
   const handleInsertCode = (code: string, fileName?: string, position?: { line: number; column: number }) => {
-    // TODO: Implement actual code insertion logic
-    // For now, just log the code and info
-    console.log("Insert code:", { code, fileName, position });
-    // You can add your integration with the editor here
+    if (onInsertCodeProp) {
+      onInsertCodeProp(code, fileName, position);
+    } else {
+      console.log("Insert code (no handler):", { code, fileName, position });
+    }
   };
 
-  // Dummy handler for running code from AI chat panel
   const handleRunCode = (code: string, language: string) => {
-    console.log("Run code:", { code, language });
+    if (onRunCodeProp) {
+      onRunCodeProp(code, language);
+    } else {
+      console.log("Run code (no handler):", { code, language });
+    }
   };
 
-  // Dummy activeFile and cursorPosition for demonstration
-  const activeFile = { name: "example.ts", content: "// file content" };
-  const cursorPosition = { line: 1, column: 1 };
+  const activeFileName = activeFileNameProp ?? "example.ts";
+  const activeFileContent = activeFileContentProp ?? "// file content";
+  const activeFileLanguage = activeFileLanguageProp ?? "typescript";
+  const cursorPosition = cursorPositionProp ?? { line: 0, column: 0 };
     return (
         <>
         <DropdownMenu>
@@ -179,9 +193,9 @@ const ToggleAI: React.FC<ToggleAIProps> = ({
         onClose={() => setIsChatOpen(false)}
         onInsertCode={handleInsertCode}
         onRunCode={handleRunCode}
-        activeFileName={activeFile?.name}
-        activeFileContent={activeFile?.content}
-        activeFileLanguage="TypeScript" // Assuming TypeScript as the language
+        activeFileName={activeFileName}
+        activeFileContent={activeFileContent}
+        activeFileLanguage={activeFileLanguage}
         cursorPosition={cursorPosition}
         theme="dark"
       />

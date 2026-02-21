@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ArrowUpRight, Code2, Sparkles, Zap, Shield, Users } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { DemoModal } from "@/features/home/components/demo-modal";
 
 // Add 'as const' to fix the easing type errors
 const fadeInUp = {
@@ -25,6 +27,8 @@ const staggerContainer = {
 } as const;
 
 export default function Home() {
+  const [demoOpen, setDemoOpen] = useState(false);
+
   return (
     <div className="flex flex-col items-center justify-start min-h-screen py-12">
       
@@ -74,10 +78,16 @@ export default function Home() {
               <ArrowUpRight className="ml-2 h-5 w-5 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
             </Button>
           </Link>
-          <Button variant="outline" size="lg" className="group">
+          <Button
+            variant="outline"
+            size="lg"
+            className="group"
+            onClick={() => setDemoOpen(true)}
+          >
             <Sparkles className="mr-2 h-5 w-5 group-hover:rotate-12 transition-transform" />
             View Demo
           </Button>
+          <DemoModal open={demoOpen} onOpenChange={setDemoOpen} />
         </motion.div>
       </motion.div>
 
