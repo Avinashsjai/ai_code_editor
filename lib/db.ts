@@ -1,14 +1,12 @@
-// lib/prisma.ts or db.ts
+// lib/db.ts
 import "dotenv/config";
-import { PrismaClient } from '../generated/prisma/client'
+import { PrismaClient } from "../generated/prisma";
 
 const globalForPrisma = global as unknown as { 
   prisma: PrismaClient | undefined
 };
 
-export const db = globalForPrisma.prisma ?? new PrismaClient({
-  datasourceUrl: process.env.DATABASE_URL, // ✅ Sahi property
-})
+export const db = globalForPrisma.prisma ?? new PrismaClient();
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = db;
